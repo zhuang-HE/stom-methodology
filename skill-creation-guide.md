@@ -1,4 +1,4 @@
-# SKILL.md 编写与优化方法论 — STOM v2.0
+# SKILL.md 编写与优化方法论 — STOM v2.1
 
 > **STOM** = Skill Token Optimization Method（Skill Token 优化方法论）
 > **目标**：控制每个 Skill 加载时的 token 消耗，同时不丢失必要信息。
@@ -303,6 +303,11 @@ daily 接口用于获取日线行情数据，pro_bar 接口可以获取前复权
 □ 触发词是否都在 description 字段中？
 □ 踩坑经验区域是否只保留实际经验（非预填）？
 □ SKILL.md 骞架能否独立完成 Top 10 常见任务中的 ≥8 个？
+□ 该 Skill 适合哪种执行模式？（建议性指导 / 确定性框架）
+□ 若为确定性框架，是否提供了强制执行的脚本/控制器？
+□ 是否有输出验证机制？
+□ 是否有状态持久化支持（中断恢复）？
+□ 执行入口是否明确统一？（如：`python scripts/workflow_controller.py`）
 ```
 
 ---
@@ -318,108 +323,57 @@ v1.0 → v2.0 (2026-04-27):
   - 新增「复杂任务检测」条件触发模式
   - 新增「禁止引用链」架构铁律
   - 从"编写规范"升级为完整的"编写与优化方法论（STOM）"
+
+v2.0 → v2.1 (2026-04-27):
+  - 新增「执行模式维度」章节（建议性指导 vs 确定性框架）
+  - 基于 non-motor-insurance-product v2.0 改造经验
+  - 新增审计 Checklist 考察项（执行模式相关4项）
+  - 将 Agent 行为指南移至 references/agent-behavior-guide.md
+  - 压缩 SKILL.md 至符合自身规范（≤350行）
 ```
 
 ---
 
 ## 十、已审计 Skill 记录
 
-| Skill | 版本 | 行数 | 大小 | 审计日期 | 备注 |
-|-------|------|------|------|---------|------|
-| tushare-data | 1.2.0 | 234 | 8.0 KB | 2026-04-27 | 从 879行瘦身73%，移出3个references文件 |
-| strategic-compact | 2.0.0 | 205 | 7.0 KB | 2026-04-27 | 从 390行瘦身47%，升级为主动模式+移出1个references |
+| Skill | 版本 | 行数 | 大小 | 执行模式 | 审计日期 | 备注 |
+|-------|------|------|------|----------|---------|------|
+| tushare-data | 1.2.0 | 234 | 8.0 KB | **建议性指导** | 2026-04-27 | 从 879行瘦身73%，移出3个references文件 |
+| strategic-compact | 2.0.0 | 205 | 7.0 KB | **建议性指导** | 2026-04-27 | 从 390行瘦身47%，升级为主动模式+移出1个references |
+| non-motor-insurance-product | 2.0.0 | 309 | ~ | **确定性框架** | 2026-04-27 | 从 542行瘦身43%，新增确定性执行框架（workflow_controller + validators） |
 
 ---
 
-## 附录：全局执行策略规范（Agent 行为层）
+## 十一、执行模式维度（建议性指导 vs 确定性框架）
 
-> 这些不是 SKILL.md 的编写规则，而是 AI Agent 在**执行任务时**应遵循的行为准则。
+根据 `non-motor-insurance-product` 技能改造经验，Skill 可分为两种执行模式，审计时应作为关键考察项：
 
-### A. 搜索优于遍历
+### 模式对比
 
-```
-❌ 错误：read_file 读取整个大文件，然后在上下文中搜索
-   → 代价：整个文件内容进入上下文 = 大量 token
+| 维度 | 建议性指导 (Advisory Mode) | 确定性框架 (Deterministic Framework) |
+|------|---------------------------|-------------------------------------|
+| **核心特点** | 提供原则、示例、启发，AI 有自由裁量权 | **强制使用预设脚本/流程**，AI 必须按规范执行 |
+| **适用场景** | 创意/探索性任务、开放性场景 | 标准化流程、合规要求、需要一致输出的任务 |
+| **风险控制** | AI 可能偏离预期、重新造轮子、输出不一致 | 结果可靠，但灵活性较低 |
+| **典型案例** | tushare-data、stock-analyst | non-motor-insurance-product（v2.0） |
+| **L1 必备内容** | 核心原则、触发场景、最佳实践 | **强制规则、脚本调用命令、参数格式** |
+| **L2 必备内容** | 详细模板、示例、常见错误 | 脚本源码、验证器、标准模板文件 |
+| **关键文件** | `references/workflow-templates.md` | `scripts/workflow_controller.py`<br>`scripts/validators.py`<br>`templates/word_format.json` |
+| **状态管理** | 通常无状态 | 支持中断恢复（JSON 状态文件） |
+| **验证机制** | 建议性检查 | **强制验证**（每步输出格式检查） |
 
-✅ 正确：先用 search_content / search_file 定位目标
-   → 然后用 read_file + limit/offset 只读相关部分
-   → 代价：只有匹配行 + 目标区域进入上下文
-```
+### 设计建议
 
-| 场景 | 推荐方法 |
-|------|---------|
-| 找某个函数/类/变量定义 | `search_content(pattern="def function_name")` |
-| 找某个配置项 | `search_content(pattern="config_key")` |
-| 找某段代码的调用位置 | `search_content(pattern="function_name\(")` |
-| 浏览项目结构 | `list_dir` + `search_file`（按 pattern）|
-| 读日志找错误 | `search_content(pattern="ERROR\|Exception", path=logfile)` |
+1. **建议性指导 Skill** → 使用「复杂任务检测」条件触发式引用
+2. **确定性框架 Skill** → 必须包含：
+   - `scripts/` 目录下的统一入口脚本
+   - 输入/输出验证器
+   - 标准化模板文件
+   - 状态持久化机制
+   - SKILL.md 中明确的**禁止重新编写**规则
 
-### B. 子智能体卸载
+> **non-motor-insurance-product v2.0 范例**：通过 `workflow_controller.py` + `validators.py` + `word_format.json` 实现确定性执行，确保 AI 只能按预设流程操作。
 
-当需要探索 **≥10 个文件** 或做 **大规模代码分析** 时：
+---
 
-```python
-# ❌ 在主上下文中逐个 read_file 20 个文件
-# → 每个 file 的内容都占上下文 → 很快撑爆
-
-# ✅ 卖给 code-explorer 子智能体
-task(subagent_name="code-explorer",
-     prompt="在 {project} 中找出所有 Controller 类，列出它们的方法和路由")
-# → 主上下文只收到最终摘要（通常 < 100 行）
-```
-
-**触发条件**：
-- 需要读 10+ 文件才能回答的问题
-- "帮我看看这个项目的架构"
-- "找到所有使用了 X 的地方"
-- 跨多文件的依赖关系分析
-
-### C. 工具结果裁剪
-
-工具返回的数据往往比需要的多。在回复用户时：
-
-```
-❌ 差："这是 API 返回的所有数据：[粘贴 5000 字 JSON]"
-
-✅ 好："关键发现：
-       - 茅台 PE(TTM)=28.5，处于近 3 年 45% 分位
-       - 近 5 日北向资金净流入 2.3 亿
-       - 详细数据已保存到 {path}
-       如需完整原始数据可以查看该文件"
-```
-
-**原则**：
-- 用户要结论 → 给结论 + 关键证据 + 数据文件路径
-- 用户要原始数据 → 给文件路径 + 格式说明 + 行数
-- 不要把大数据原样塞进对话
-
-### D. 并行调用
-
-多个**无依赖**的操作，一次并行发出：
-
-```python
-# ❌ 串行（4 轮对话）
-read_file("A.py")  → 等待 → read_file("B.py")  → 等待 → ...
-total: 4 rounds
-
-# ✅ 并行（1 轮对话）
-同时发出:
-  - read_file("A.py")
-  - read_file("B.py")
-  - read_file("C.py")
-  - read_file("D.py")
-total: 1 round (4x 效率提升)
-```
-
-**注意**：有依赖关系的操作不能并行（如：先读 A 决定是否读 B）。
-
-### E. 综合效率清单（任务中随时自检）
-
-```
-□ 我是否在读已经读过的文件？→ 停止，从上下文引用
-□ 我是否能用 search 代替全文件读取？→ 改用 search
-□ 这 3 个操作是否有依赖？→ 无依赖则并行发出
-□ 我是否在向用户展示过多原始数据？→ 裁剪为摘要
-□ 是否应该把这个探索性任务给子智能体？→ >10 文件时考虑
-□ 当前 Skill 加载了几个？→ ≥3 个时警惕
-```
+**注意**：Agent 全局执行策略（搜索优化、子智能体卸载、结果裁剪等）已移至 `references/agent-behavior-guide.md`，按需读取。

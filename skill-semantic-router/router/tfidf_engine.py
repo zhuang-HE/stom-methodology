@@ -9,8 +9,8 @@ tfidf_engine.py — TF-IDF 向量化引擎（纯 Python，零外部依赖）
 
 import math
 import re
-from collections import Counter
-from typing import Tuple
+from collections import Counter, defaultdict
+from typing import Tuple, Dict, Set
 
 
 def tokenize(text: str) -> list[str]:
@@ -106,3 +106,25 @@ def cosine_similarity(vec_a: dict, vec_b: dict) -> float:
     if norm_a == 0 or norm_b == 0:
         return 0.0
     return dot / (norm_a * norm_b)
+
+
+def build_inverted_index(
+    tfidf_vecs: list[dict]
+) -> Dict[str, Set[int]]:
+    """
+    构建 token → skill 索引位置集合 的倒排索引。
+    
+    用于加速路由检索：只需对 query token 命中的候选 skill
+    计算余弦相似度，而非全量遍历全部 N 个 skill。
+
+    Args:
+        tfidf_vecs: build_tfidf_index() 输出的 TF-IDF 向量列表
+
+    Returns:
+        {token: set(skill_index, ...)} 倒排索引
+    """
+    inv_index: Dict[str, Set[int]] = defaultdict(set)
+    for idx, vec in enumerate(tfidf_vecs):
+        for token in vec:
+            inv_index[token].add(idx)
+    return dict(inv_index)

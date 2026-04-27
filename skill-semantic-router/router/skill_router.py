@@ -12,13 +12,16 @@ skill_router.py — 核心路由器（STOM 重构版）
 """
 
 import json
+import logging
 import re
 from collections import Counter
 from pathlib import Path
 from typing import Optional
 
+logger = logging.getLogger(__name__)
+
 # 同包导入
-from router.tfidf_engine import build_tfidf_index, cosine_similarity, tokenize
+from router.tfidf_engine import build_tfidf_index, build_inverted_index, cosine_similarity, tokenize
 from router.context_enhancer import augment_query
 # 跨包导入
 from config import (
@@ -55,13 +58,21 @@ class SkillRouter:
             mgr = SkillIndexManager(index_path=self.index_path)
             mgr.full_sync(remove_missing=False)
         except Exception as e:
-            print(f"[SkillRouter] 自动同步跳过: {e}")
+            logger.warning("自动同步跳过: %s", e)
 
     # ─── 索引加载 ──────────────────────────────────────
 
     def _load_and_build(self):
         """加载 skill_index.json 并构建 TF-IDF 向量"""
-        with open(self.index_path, encoding="utf-8") as f:
+        index_file = Path(self.index_path)
+        if not index_file.exists():
+            raise FileNotFoundError(
+                f"Skill 索引文件不存在: {index_file}\n"
+                f"请先运行: python -m indexer.index_manager --sync\n"
+                f"或检查 DEFAULT_INDEX_PATH 配置是否正确"
+            )
+
+        with open(index_file, encoding="utf-8") as f:
             self.index = json.load(f)
         self.skills = self.index["skills"]
         self.routing_rules = self.index.get("routing_rules", {})
@@ -69,7 +80,10 @@ class SkillRouter:
         self.idf, self.skill_vecs = build_tfidf_index(self.skills)
         # O(1) 技能查找索引（替代逐个遍历）
         self._skill_map: dict[str, dict] = {s["id"]: s for s in self.skills}
-        print(f"[SkillRouter] 已加载 {len(self.skills)} 个 skill，索引构建完成")
+        # 倒排索引：token → 命中的 skill 索引集合（O(N)→O(K) 检索加速）
+        self._inv_index = build_inverted_index(self.skill_vecs)
+        logger.info("已加载 %d 个 skill，索引构建完成（倒排索引 token 数: %d）",
+                     len(self.skills), len(self._inv_index))
 
     def reload(self):
         """重新加载索引（skill 变更后调用）"""
@@ -135,16 +149,38 @@ class SkillRouter:
         # Layer 1: 上下文增强
         augmented = augment_query(query, history, used_skills)
 
-        # Layer 2: 向量检索 + Boost
+        # Layer 2: 向量检索 + Boost（倒排索引加速：O(N) → O(K)）
         q_vec = self._query_vec(augmented)
         if not q_vec:
             return {"action": "fallback", "skill": None, "candidates": [],
                     "augmented_query": augmented, "reason": "query 向量为空"}
 
-        scores = [
-            (self.skills[i]["id"], cosine_similarity(q_vec, self.skill_vecs[i]))
-            for i in range(len(self.skills))
-        ]
+        # 通过倒排索引找到候选 skill 集合（只计算命中的）
+        candidate_indices: set[int] = set()
+        for token in q_vec:
+            candidate_indices.update(self._inv_index.get(token, set()))
+
+        # 如果无候选命中，fallback 到全量扫描兜底
+        if not candidate_indices:
+            scores = [
+                (self.skills[i]["id"], cosine_similarity(q_vec, self.skill_vecs[i]))
+                for i in range(len(self.skills))
+            ]
+        else:
+            scores = [
+                (self.skills[i]["id"], cosine_similarity(q_vec, self.skill_vecs[i]))
+                for i in candidate_indices
+            ]
+
+        # 兜底：如果倒排索引候选数 < total/10 且分数极低，补充全量扫描
+        if len(candidate_indices) > 0 and len(candidate_indices) < len(self.skills) // 10:
+            scores_full = [
+                (self.skills[i]["id"], cosine_similarity(q_vec, self.skill_vecs[i]))
+                for i in range(len(self.skills)) if i not in candidate_indices
+            ]
+            if scores_full and scores_full[0][1] > (scores[0][1] if scores else 0):
+                scores = scores_full + scores
+
         scores.sort(key=lambda x: -x[1])
 
         scores = self._apply_source_boost(scores)
@@ -155,6 +191,7 @@ class SkillRouter:
         # Layer 3: 置信度决策
         top_id, top_score = top_candidates[0]
         top_skill = self._skill_map.get(top_id)
+        top_name = top_skill["name"] if top_skill else top_id
 
         if top_score >= CONFIDENCE_HIGH:
             action = "invoke"
@@ -169,7 +206,7 @@ class SkillRouter:
         return {
             "action": action,
             "skill": top_id if action != "fallback" else None,
-            "skill_name": top_skill["name"],
+            "skill_name": top_name,
             "confidence": round(top_score, 4),
             "candidates": [
                 {"id": sid, "score": round(sc, 4)} for sid, sc in top_candidates

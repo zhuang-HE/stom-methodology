@@ -12,12 +12,15 @@ index_manager.py — 动态索引管理器（STOM 重构版）
 """
 
 import json
+import logging
 import os
 import re
 import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 # 同包导入
 from indexer.models import DiscoveredSkill, SyncReport, asdict
@@ -64,6 +67,7 @@ class SkillIndexManager:
         # 运行时状态
         self.discovered: dict[str, DiscoveredSkill] = {}
         self.index: dict = {}
+        self._skill_index_map: dict[str, dict] = {}  # O(1) 查找索引
         self._load_index()
 
     # ─── 索引加载/保存 ──────────────────────────────
@@ -73,6 +77,9 @@ class SkillIndexManager:
         if self.index_path.exists():
             with open(self.index_path, "r", encoding="utf-8-sig") as f:
                 self.index = json.load(f)
+            # 构建 O(1) 查找映射
+            skills = self.index.get("skills", [])
+            self._skill_index_map = {s["id"]: s for s in skills}
         else:
             self.index = {
                 "version": "1.0.0",
@@ -81,6 +88,7 @@ class SkillIndexManager:
                 "skills": [],
                 "routing_rules": {},
             }
+            self._skill_index_map = {}
 
     def _save_index(self):
         """保存索引到文件（自动更新时间戳和版本号）"""
@@ -119,9 +127,9 @@ class SkillIndexManager:
                         self.discovered[skill.id] = skill
                         count += 1
                 except Exception as e:
-                    print(f"[WARN] 解析失败: {skill_md} -> {e}")
+                    logger.warning("解析失败: %s -> %s", skill_md, e)
 
-        print(f"[Scanner] 发现 {count} 个 skill（用户级 + 插件级）")
+        logger.info("发现 %d 个 skill（用户级 + 插件级）", count)
         return count
 
     def _parse_skill_md(self, filepath: Path) -> Optional[DiscoveredSkill]:
@@ -242,7 +250,7 @@ class SkillIndexManager:
             new_skill = self.discovered[item["id"]]
             entry = new_skill.to_index_entry()
             skill_map[new_skill.id] = entry
-            print(f"  [+] 新增: {new_skill.id} ({new_skill.source})")
+            logger.info("[+] 新增: %s (%s)", new_skill.id, new_skill.source)
 
         # 变更（只更新 hash，保留人工优化的 description/triggers）
         for item in report.modified:
@@ -251,11 +259,11 @@ class SkillIndexManager:
             if old:
                 old["file_hash"] = updated_skill.file_hash
                 old["source"] = updated_skill.source
-                print(f"  [~] 更新 hash: {updated_skill.id}")
+                logger.info("[~] 更新 hash: %s", updated_skill.id)
             else:
                 entry = updated_skill.to_index_entry()
                 skill_map[updated_skill.id] = entry
-                print(f"  [+] 新增: {updated_skill.id}")
+                logger.info("[+] 新增: %s", updated_skill.id)
 
         # 移除
         if remove_missing:
@@ -263,13 +271,14 @@ class SkillIndexManager:
                 sid = item["id"]
                 if sid in skill_map:
                     del skill_map[sid]
-                    print(f"  [-] 移除: {sid}")
+                    logger.info("[-] 移除: %s", sid)
 
         self.index["skills"] = list(skill_map.values())
+        self._skill_index_map = skill_map
         self._save_index()
         self._append_changelog(report)
 
-        print(f"\n  索引已更新: {len(self.index['skills'])} 个 skill")
+        logger.info("索引已更新: %d 个 skill", len(self.index["skills"]))
 
     def _append_changelog(self, report: SyncReport):
         """追加变更记录到 changelog JSON"""
@@ -299,31 +308,28 @@ class SkillIndexManager:
 
     def full_sync(self, remove_missing: bool = True) -> SyncReport:
         """一键完成：扫描 -> 同步 -> 应用。返回报告。"""
-        print("\n开始全量索引同步...")
+        logger.info("开始全量索引同步...")
 
         count = self.scan()
         if count == 0:
-            print("[WARN] 未发现任何 SKILL.md，请检查扫描路径")
+            logger.warning("未发现任何 SKILL.md，请检查扫描路径")
             return SyncReport(timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
         report = self.sync()
-        print(report.summary())
+        logger.info("\n%s", report.summary())
 
         if report.added or report.modified or report.removed:
             self.apply_sync(report, remove_missing=remove_missing)
         else:
-            print("  索引已是最新，无需更新")
+            logger.info("索引已是最新，无需更新")
 
         return report
 
     # ─── 查询接口 ────────────────────────────────────
 
     def get_skill(self, skill_id: str) -> Optional[dict]:
-        """查询单个 skill 的索引信息"""
-        for s in self.index.get("skills", []):
-            if s["id"] == skill_id:
-                return s
-        return None
+        """查询单个 skill 的索引信息（O(1)）"""
+        return self._skill_index_map.get(skill_id)
 
     def list_skills(self, source: str = "") -> list[dict]:
         """列出所有 skill（可按 source 过滤）"""

@@ -56,13 +56,14 @@ class SkillFeedbackLearner:
         new_triggers = [t for t in tokens
                         if t not in self.stopwords and len(t) > 1]
 
-        # 写回索引
-        for skill in self.router.skills:
-            if skill["id"] == correct_skill_id:
-                existing = set(skill.get("triggers", []))
-                added = [t for t in new_triggers if t not in existing]
-                skill["triggers"].extend(added)
-                break
+        # 写回索引（O(1) 查找）
+        skill = self.router._skill_map.get(correct_skill_id)
+        if not skill:
+            return f"[ERROR] Skill '{correct_skill_id}' 不在索引中"
+
+        existing = set(skill.get("triggers", []))
+        added = [t for t in new_triggers if t not in existing]
+        skill["triggers"].extend(added)
 
         # 持久化到 JSON
         self.router.index["skills"] = self.router.skills

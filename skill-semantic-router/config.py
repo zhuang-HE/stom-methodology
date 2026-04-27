@@ -28,6 +28,18 @@ DEFAULT_SCAN_ROOTS = [
     Path("~/.workbuddy/plugins/marketplaces"),
 ]
 
+# ─── 分词器配置 ───────────────────────────────────────────────
+
+# 可选值: "ngram"（内置 bigram/trigram）, "jieba"（需 pip install jieba）
+TOKENIZER = "ngram"
+
+# BM25 参数
+BM25_K1 = 1.2       # 词频饱和参数
+BM25_B = 0.75       # 文档长度归一化参数
+
+# 缓存配置
+ROUTING_CACHE_SIZE = 256   # LRU 缓存容量
+
 # ─── 路由决策阈值 ────────────────────────────────────────────
 
 CONFIDENCE_HIGH = 0.35   # ≥ 此值 → 直接触发 (invoke)

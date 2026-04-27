@@ -14,7 +14,7 @@ skill_router.py — 核心路由器（STOM 重构版）
 import json
 import logging
 import re
-from collections import Counter
+from collections import Counter, OrderedDict
 from pathlib import Path
 from typing import Optional
 
@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 # 同包导入
 from router.tfidf_engine import build_tfidf_index, build_inverted_index, cosine_similarity, tokenize
+from router.bm25_engine import BM25Engine, jieba_tokenize, tokenize_text as bm25_tokenize
 from router.context_enhancer import augment_query
 # 跨包导入
 from config import (
@@ -29,6 +30,7 @@ from config import (
     CONFIDENCE_HIGH, CONFIDENCE_LOW, TOP_K,
     SOURCE_BOOST, CATEGORY_BOOST_FACTOR,
     CATEGORY_PRIORITY, EXACT_OVERRIDE, CATEGORY_HINTS,
+    TOKENIZER, BM25_K1, BM25_B, ROUTING_CACHE_SIZE,
 )
 
 
@@ -42,9 +44,19 @@ class SkillRouter:
         # → {"action": "invoke", "skill": "code-review", "confidence": 0.412, ...}
     """
 
-    def __init__(self, index_path: str = str(DEFAULT_INDEX_PATH), auto_sync: bool = False):
+    def __init__(
+        self,
+        index_path: str = str(DEFAULT_INDEX_PATH),
+        auto_sync: bool = False,
+        cache_size: int = ROUTING_CACHE_SIZE,
+    ):
         self.index_path = index_path
         self.auto_sync = auto_sync
+        # LRU 路由缓存（相同 query 直接返回，避免重复计算）
+        self._cache: OrderedDict[str, dict] = OrderedDict()
+        self._cache_size = cache_size
+        # 分词器选择（支持 ngram / jieba）
+        self._tokenizer = jieba_tokenize if TOKENIZER == "jieba" else bm25_tokenize
 
         if auto_sync:
             self._auto_sync_index()
@@ -82,11 +94,15 @@ class SkillRouter:
         self._skill_map: dict[str, dict] = {s["id"]: s for s in self.skills}
         # 倒排索引：token → 命中的 skill 索引集合（O(N)→O(K) 检索加速）
         self._inv_index = build_inverted_index(self.skill_vecs)
-        logger.info("已加载 %d 个 skill，索引构建完成（倒排索引 token 数: %d）",
-                     len(self.skills), len(self._inv_index))
+        # BM25 引擎（短文本匹配效果优于纯 TF-IDF 余弦）
+        self._bm25 = BM25Engine(self.skills, k1=BM25_K1, b=BM25_B,
+                                 tokenizer=self._tokenizer)
+        logger.info("已加载 %d 个 skill，索引构建完成（倒排 token: %d，BM25 词表: %d）",
+                     len(self.skills), len(self._inv_index), len(self._bm25.idf))
 
     def reload(self):
         """重新加载索引（skill 变更后调用）"""
+        self._cache.clear()
         self._load_and_build()
 
     # ─── 向量查询 ──────────────────────────────────────
@@ -130,6 +146,12 @@ class SkillRouter:
         history = history or []
         used_skills = used_skills or []
 
+        # ── 缓存层：相同 query 直接返回（LRU） ──
+        cache_key = query.strip()
+        if cache_key in self._cache:
+            self._cache.move_to_end(cache_key)
+            return self._cache[cache_key]
+
         # Layer 0: 精确关键词快速通道
         query_lower = query.lower()
         for pattern, skill_id in EXACT_OVERRIDE.items():
@@ -150,38 +172,54 @@ class SkillRouter:
         augmented = augment_query(query, history, used_skills)
 
         # Layer 2: 向量检索 + Boost（倒排索引加速：O(N) → O(K)）
+        # ── 双引擎：TF-IDF 余弦相似度 + BM25 排序（加权融合）──
         q_vec = self._query_vec(augmented)
         if not q_vec:
             return {"action": "fallback", "skill": None, "candidates": [],
                     "augmented_query": augmented, "reason": "query 向量为空"}
 
-        # 通过倒排索引找到候选 skill 集合（只计算命中的）
+        # TF-IDF 分数（倒排索引加速候选筛选）
         candidate_indices: set[int] = set()
         for token in q_vec:
             candidate_indices.update(self._inv_index.get(token, set()))
 
-        # 如果无候选命中，fallback 到全量扫描兜底
         if not candidate_indices:
-            scores = [
+            tfidf_scores = [
                 (self.skills[i]["id"], cosine_similarity(q_vec, self.skill_vecs[i]))
                 for i in range(len(self.skills))
             ]
         else:
-            scores = [
+            tfidf_scores = [
                 (self.skills[i]["id"], cosine_similarity(q_vec, self.skill_vecs[i]))
                 for i in candidate_indices
             ]
 
-        # 兜底：如果倒排索引候选数 < total/10 且分数极低，补充全量扫描
+        # 兜底：倒排候选过少时补充全量扫描
         if len(candidate_indices) > 0 and len(candidate_indices) < len(self.skills) // 10:
             scores_full = [
                 (self.skills[i]["id"], cosine_similarity(q_vec, self.skill_vecs[i]))
                 for i in range(len(self.skills)) if i not in candidate_indices
             ]
-            if scores_full and scores_full[0][1] > (scores[0][1] if scores else 0):
-                scores = scores_full + scores
+            if scores_full and scores_full[0][1] > (tfidf_scores[0][1] if tfidf_scores else 0):
+                tfidf_scores = scores_full + tfidf_scores
 
-        scores.sort(key=lambda x: -x[1])
+        # BM25 分数
+        bm25_results = self._bm25.search(augmented, top_k=len(self.skills),
+                                          use_inverted_index=True)
+
+        # 融合：TF-IDF × 0.4 + BM25 × 0.6（BM25 对短文本更准，权重更高）
+        BM25_WEIGHT = 0.6
+        TFIDF_WEIGHT = 0.4
+        bm25_map = {sid: sc for sid, sc in bm25_results}
+        
+        fused_scores: list[tuple[str, float]] = []
+        for sid, tfidf_sc in tfidf_scores:
+            bm25_sc = bm25_map.get(sid, 0.0)
+            # 归一化到 [0, 1] 范围后加权融合
+            fused = TFIDF_WEIGHT * tfidf_sc + BM25_WEIGHT * min(bm25_sc / 10.0, 1.0)
+            fused_scores.append((sid, fused))
+
+        scores = sorted(fused_scores, key=lambda x: -x[1])
 
         scores = self._apply_source_boost(scores)
         scores = self._apply_category_boost(scores, augmented)
@@ -203,7 +241,7 @@ class SkillRouter:
             action = "fallback"
             reason = f"低置信，无明确匹配 ({top_score:.3f} < {CONFIDENCE_LOW})"
 
-        return {
+        result = {
             "action": action,
             "skill": top_id if action != "fallback" else None,
             "skill_name": top_name,
@@ -214,6 +252,14 @@ class SkillRouter:
             "augmented_query": augmented,
             "reason": reason,
         }
+
+        # 写入 LRU 缓存（仅缓存确定性的 invoke/confirm 结果）
+        if result["action"] in ("invoke", "confirm"):
+            self._cache[cache_key] = result
+            if len(self._cache) > self._cache_size:
+                self._cache.popitem(last=False)
+
+        return result
 
     # ─── Boost 策略 ────────────────────────────────────
 

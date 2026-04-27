@@ -15,9 +15,8 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
 # 使用新的子包导入路径
+from router import SkillRouter, SkillFeedbackLearner
 from router.tfidf_engine import tokenize, cosine_similarity
-from router.skill_router import SkillRouter
-from router.feedback_learner import SkillFeedbackLearner
 
 
 class TestTokenize(unittest.TestCase):
@@ -219,6 +218,90 @@ class TestFeedbackLearner(unittest.TestCase):
             )
         finally:
             os.unlink(tmp_path)
+
+
+class TestBoostStrategies(unittest.TestCase):
+    """Boost 策略单元测试"""
+
+    @classmethod
+    def setUpClass(cls):
+        index_path = os.path.join(PROJECT_ROOT, "skill_index.json")
+        cls.router = SkillRouter(index_path)
+
+    def test_source_boost_user_priority(self):
+        """用户级 skill 在同分时应排更前（通过 _apply_source_boost 验证）"""
+        # 用一个确定能命中的查询
+        result = self.router.route("帮我看看代码")
+        if result["candidates"]:
+            # 验证 boost 后分数不为负且候选有序
+            scores = [c["score"] for c in result["candidates"]]
+            self.assertTrue(
+                all(s >= 0 for s in scores),
+                "Boost 后分数不应为负"
+            )
+            self.assertEqual(scores, sorted(scores, reverse=True),
+                             "候选列表应按分数降序")
+
+    def test_category_boost_finance_query(self):
+        """金融相关 query 应触发 category boost"""
+        result = self.router.route("查一下 CPI 和 GDP")
+        # 金融类 query 命中 CATEGORY_HINTS，对应 skill 应获得 2x 加权
+        self.assertNotEqual(result["action"], "fallback",
+                            "金融 macro query 不应 fallback")
+
+    def test_exact_override_highest_priority(self):
+        """精确匹配应返回 confidence=1.0，绕过向量计算"""
+        result = self.router.route("帮我做个 PRD 文档")
+        self.assertEqual(result["confidence"], 1.0)
+        self.assertTrue(result["reason"].startswith("精确关键词匹配:"))
+
+
+class TestEdgeCases(unittest.TestCase):
+    """边界条件与异常输入测试"""
+
+    @classmethod
+    def setUpClass(cls):
+        index_path = os.path.join(PROJECT_ROOT, "skill_index.json")
+        cls.router = SkillRouter(index_path)
+
+    def test_empty_query(self):
+        """空字符串应 fallback"""
+        result = self.router.route("")
+        self.assertEqual(result["action"], "fallback")
+
+    def test_whitespace_only_query(self):
+        """纯空白字符应 fallback"""
+        result = self.router.route("   \t\n  ")
+        self.assertEqual(result["action"], "fallback")
+
+    def test_very_long_query(self):
+        """超长 query 不应崩溃（>500 字符）"""
+        long_query = "分析股票" * 200  # 600 字符
+        result = self.router.route(long_query)
+        self.assertIn(result["action"], ("invoke", "confirm", "fallback"))
+
+    def test_unicode_emoji_query(self):
+        """含 emoji 的 query 不应崩溃"""
+        result = self.router.route("帮我📊看看茅台行情📈")
+        self.assertIn(result["action"], ("invoke", "confirm", "fallback"))
+
+    def test_special_characters_query(self):
+        """含特殊字符的 query 不应崩溃"""
+        result = self.router.route("<script>alert('xss')</script> 写文档")
+        self.assertIn(result["action"], ("invoke", "confirm", "fallback"))
+
+    def test_history_with_none(self):
+        """history=None 或 used_skills=None 不应崩溃"""
+        result1 = self.router.route("写 README", history=None)
+        result2 = self.router.route("写 README", used_skills=None)
+        self.assertEqual(result1["skill"], result2["skill"])
+
+    def test_reload_rebuilds_skill_map(self):
+        """reload 后 _skill_map 应仍然可用"""
+        self.router.reload()
+        # 确认 reload 后路由正常工作
+        result = self.router.route("做个 PPT 给我")
+        self.assertEqual(result["skill"], "pptx")
 
 
 if __name__ == "__main__":

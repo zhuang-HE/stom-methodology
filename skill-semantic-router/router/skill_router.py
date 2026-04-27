@@ -13,6 +13,7 @@ skill_router.py — 核心路由器（STOM 重构版）
 
 import json
 import re
+from collections import Counter
 from pathlib import Path
 from typing import Optional
 
@@ -66,6 +67,8 @@ class SkillRouter:
         self.routing_rules = self.index.get("routing_rules", {})
 
         self.idf, self.skill_vecs = build_tfidf_index(self.skills)
+        # O(1) 技能查找索引（替代逐个遍历）
+        self._skill_map: dict[str, dict] = {s["id"]: s for s in self.skills}
         print(f"[SkillRouter] 已加载 {len(self.skills)} 个 skill，索引构建完成")
 
     def reload(self):
@@ -77,7 +80,7 @@ class SkillRouter:
     def _query_vec(self, query: str) -> dict:
         """将 query 文本转为 TF-IDF 稀疏向量"""
         tokens = tokenize(query)
-        tf = __import__("collections").Counter(tokens)
+        tf = Counter(tokens)
         return {token: (count / len(tokens)) * self.idf.get(token, 0)
                 for token, count in tf.items()} if tokens else {}
 
@@ -117,7 +120,7 @@ class SkillRouter:
         query_lower = query.lower()
         for pattern, skill_id in EXACT_OVERRIDE.items():
             if re.search(pattern, query_lower):
-                skill = next((s for s in self.skills if s["id"] == skill_id), None)
+                skill = self._skill_map.get(skill_id)
                 if skill:
                     return {
                         "action": "invoke",
@@ -151,7 +154,7 @@ class SkillRouter:
 
         # Layer 3: 置信度决策
         top_id, top_score = top_candidates[0]
-        top_skill = next(s for s in self.skills if s["id"] == top_id)
+        top_skill = self._skill_map.get(top_id)
 
         if top_score >= CONFIDENCE_HIGH:
             action = "invoke"
@@ -183,7 +186,7 @@ class SkillRouter:
         """用户级 skill 在分数接近时优先（+20%）"""
         boosted = []
         for skill_id, score in scores:
-            skill = next((s for s in self.skills if s["id"] == skill_id), None)
+            skill = self._skill_map.get(skill_id)
             source = skill.get("source", "plugin") if skill else "plugin"
             factor = SOURCE_BOOST.get(source, 1.0)
             boosted.append((skill_id, score * factor))
@@ -210,7 +213,7 @@ class SkillRouter:
 
         boosted = []
         for skill_id, score in scores:
-            skill = next((s for s in self.skills if s["id"] == skill_id), None)
+            skill = self._skill_map.get(skill_id)
             if skill and skill.get("category") in boosted_categories:
                 boosted.append((skill_id, score * CATEGORY_BOOST_FACTOR))
             else:
@@ -221,8 +224,8 @@ class SkillRouter:
         if len(result) >= 2:
             top_id, top_sc = result[0]
             sec_id, sec_sc = result[1]
-            top_cat = next((s.get("category") for s in self.skills if s["id"] == top_id), None)
-            sec_cat = next((s.get("category") for s in self.skills if s["id"] == sec_id), None)
+            top_cat = self._skill_map.get(top_id, {}).get("category")
+            sec_cat = self._skill_map.get(sec_id, {}).get("category")
             if (top_cat == sec_cat and top_cat in CATEGORY_PRIORITY
                     and top_cat):
                 prio = CATEGORY_PRIORITY[top_cat]

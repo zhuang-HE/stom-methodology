@@ -15,12 +15,9 @@ import json
 import os
 import re
 import sys
-import io
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
-
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 
 # 同包导入
 from indexer.models import DiscoveredSkill, SyncReport, asdict
@@ -92,10 +89,9 @@ class SkillIndexManager:
         with open(self.index_path, "w", encoding="utf-8") as f:
             json.dump(self.index, f, ensure_ascii=False, indent=2)
 
-    @staticmethod
-    def _next_version() -> str:
+    def _next_version(self) -> str:
         """递增 patch 版本号 (x.y.z → x.y.(z+1))"""
-        ver = "1.0.0"  # fallback
+        ver = self.index.get("version", "1.0.0")
         parts = ver.split(".")
         parts[-1] = str(int(parts[-1]) + 1)
         return ".".join(parts)

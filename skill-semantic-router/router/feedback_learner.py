@@ -12,6 +12,12 @@ from collections import Counter
 
 from router.tfidf_engine import build_tfidf_index, tokenize
 
+# 模块级停用词表（提取触发词时过滤）
+DEFAULT_STOPWORDS: frozenset[str] = frozenset({
+    "帮我", "一下", "看看", "给我", "的", "了", "呢", "吗",
+    "请", "能", "这个", "那个", "怎么", "什么", "如何", "能否",
+})
+
 
 class SkillFeedbackLearner:
     """
@@ -26,14 +32,9 @@ class SkillFeedbackLearner:
         会直接修改 router 的索引和向量，并持久化到 JSON 文件。
     """
 
-    def __init__(self, router):
+    def __init__(self, router, stopwords: set[str] | None = None):
         self.router = router
-
-    # 停用词列表（提取触发词时过滤）
-    STOPWORDS = {
-        "帮我", "一下", "看看", "给我", "的", "了", "呢", "吗",
-        "请", "能", "这个", "那个", "怎么", "什么", "如何", "能否",
-    }
+        self.stopwords = stopwords or DEFAULT_STOPWORDS
 
     def on_correction(
         self,
@@ -53,7 +54,7 @@ class SkillFeedbackLearner:
         # 提取 query 中的关键词（去停用词，保留长度>1的 token）
         tokens = tokenize(original_query)
         new_triggers = [t for t in tokens
-                        if t not in self.STOPWORDS and len(t) > 1]
+                        if t not in self.stopwords and len(t) > 1]
 
         # 写回索引
         for skill in self.router.skills:

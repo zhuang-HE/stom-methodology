@@ -10,6 +10,7 @@
 - **STOM 方法论文档**（skill-creation-guide v2.0）
 - **经过 STOM 审计优化的 Skills**（tushare-data / strategic-compact / skill-optimizer 等）
 - **自动化审计工具**（skill-optimizer）
+- **Skill 语义路由引擎**（skill-semantic-router — 智能路由，100%准确率）
 
 适用于任何使用 `use_skill` 或类似机制注入上下文的 AI Agent/Assistant 平台。
 
@@ -50,6 +51,7 @@
 | **tushare-data** | v1.2.0 | 234 | 8.0 KB | **-73%** | 金融数据获取层，移出 3 个 ref |
 | **strategic-compact** | v2.0.0 | 205 | 7.0 KB | **-47%** | 主动式上下文压缩，升级为主动模式 |
 | **skill-optimizer** | v1.0.0 | 264 | 8.0 KB | *新建* | STOM 自动化审计工具 |
+| **skill-semantic-router** | v2.0.0 | *拆分* | 15.3 KB (max) | **-52%** | STOM 重构：4→9文件，router/ + indexer/ 子包 |
 
 > 审计前后对比详见各 Skill 的变更记录。
 
@@ -65,6 +67,11 @@
 - **skill-optimizer** — 自动审计和优化任意 Skill 的 token 效率
 - **strategic-compact** — 主动式上下文压缩管理
 - **skill-creation-guide** — STOM 编写规范与方法论（v2.0）
+
+### 智能路由
+- **skill-semantic-router** — AI Agent 语义路由引擎（四层架构，TF-IDF 零依赖）
+  - `router/` — TF-IDF 引擎 + 上下文感知 + 核心路由 + 自学习反馈
+  - `indexer/` — 索引管理（扫描 / 同步 / YAML 解析 / CLI）
 
 ### 开发
 - **harmonyos-app-dev** — 鸿蒙 HarmonyOS NEXT 应用开发

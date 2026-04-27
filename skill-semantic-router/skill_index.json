@@ -1,0 +1,278 @@
+{
+  "version": "1.0.0",
+  "generated_at": "2026-04-16",
+  "description": "WorkBuddy Skill 语义索引 — 供语义路由器使用，字段含义见下方 schema",
+  "schema": {
+    "id": "唯一标识（路由时使用）",
+    "name": "skill 名称",
+    "category": "领域分类",
+    "description": "供语义向量化的完整描述（中英文）",
+    "triggers": "触发关键词列表（兼容旧关键词机制）",
+    "path": "SKILL.md 相对路径",
+    "complexity": "复杂度 1-3",
+    "priority": "同类 skill 触发优先级（数字越小越优先）"
+  },
+  "skills": [
+    {
+      "id": "code-review",
+      "name": "code-review",
+      "category": "代码质量",
+      "description": "代码质量审查和安全审计，提供可执行的改进建议。覆盖安全漏洞、代码质量、性能、可维护性和测试覆盖五大维度。Code quality review, security audit, bug detection, code analysis.",
+      "triggers": ["代码审查", "code review", "审查代码", "检查代码", "代码质量", "安全审计", "代码安全", "代码分析", "找 bug", "安全漏洞", "代码优化建议", "review 一下", "帮我看看代码", "检查一下这段代码", "代码有问题吗", "帮我审查", "看下代码"],
+      "path": "~/.workbuddy/skills/code-review/SKILL.md",
+      "complexity": 3,
+      "priority": 1
+    },
+    {
+      "id": "documentation",
+      "name": "documentation",
+      "category": "文档",
+      "description": "技术文档生成和维护，创建清晰、完整、可维护的文档。适用于 API 文档、README、接口文档、changelog、注释补充。Technical documentation generation, README, API docs.",
+      "triggers": ["写文档", "生成文档", "API文档", "README", "接口文档", "技术文档", "写说明", "文档生成", "documentation", "changelog", "接口说明", "帮我写个说明", "补充注释", "生成 README", "写接口文档", "写使用说明", "整理文档", "更新文档"],
+      "path": "~/.workbuddy/skills/documentation/SKILL.md",
+      "complexity": 2,
+      "priority": 1
+    },
+    {
+      "id": "git-workflow",
+      "name": "git-workflow",
+      "category": "版本控制",
+      "description": "智能 Git 工作流辅助，生成规范化提交信息、分支策略建议和 PR 描述。Git commit, branch, merge, PR, version management.",
+      "triggers": ["git", "提交代码", "commit", "push", "分支", "合并", "PR", "pull request", "git 工作流", "创建分支", "提交信息", "写 commit", "提交变更", "代码提交", "版本管理", "changelog 生成", "发布版本", "打 tag"],
+      "path": "~/.workbuddy/skills/git-workflow/SKILL.md",
+      "complexity": 1,
+      "priority": 1
+    },
+    {
+      "id": "web-research",
+      "name": "web-research",
+      "category": "研究调研",
+      "description": "深度网络研究和信息整理，生成结构化研究报告。适用于竞品分析、技术调研、行业分析、市场研究。Deep web research, competitive analysis, market research, industry analysis.",
+      "triggers": ["调研", "研究", "搜索资料", "竞品分析", "deep research", "查一下", "找资料", "信息收集", "市场调研", "技术调研", "行业分析", "对比分析", "查询资料", "写研究报告", "搜集信息", "网络调研", "新能源市场", "行业调研", "市场分析", "行业研究", "市场报告"],
+      "path": "~/.workbuddy/skills/web-research/SKILL.md",
+      "complexity": 2,
+      "priority": 1
+    },
+    {
+      "id": "stock-analyst",
+      "name": "stock-analyst",
+      "category": "股票分析",
+      "description": "基于 AkShare 的智能股票分析，支持 A股/港股/美股 四维分析（技术面/基本面/资金面/消息面）。Stock analysis, technical analysis, fundamental analysis, A-share, HK stock, US stock.",
+      "triggers": ["股票分析", "技术分析", "基本面", "K线", "A股", "港股", "美股", "个股分析", "选股", "akshare"],
+      "path": "~/.workbuddy/skills/stock-analyst/SKILL.md",
+      "complexity": 3,
+      "priority": 2
+    },
+    {
+      "id": "memory-consolidation",
+      "name": "memory-consolidation",
+      "category": "工作流",
+      "description": "定期整理和压缩工作记忆，将短期日志提炼为长期记忆，保持记忆系统高效可用。Memory management, log cleanup, memory consolidation.",
+      "triggers": ["整理记忆", "压缩记忆", "记忆整理", "清理日志", "巩固记忆", "memory consolidation", "整理 memory", "清理 MEMORY.md", "日志太多了", "记忆文件", "工作记忆", "整理工作日志", "MEMORY文件"],
+      "path": "~/.workbuddy/skills/memory-consolidation/SKILL.md",
+      "complexity": 1,
+      "priority": 1
+    },
+    {
+      "id": "mcp-connector",
+      "name": "mcp-connector",
+      "category": "外部集成",
+      "description": "连接外部服务和工具，实现 GitHub、数据库、Docker、云服务等外部集成。MCP, external service integration, database, Docker, cloud.",
+      "triggers": ["连接 GitHub", "操作数据库", "Docker 命令", "kubectl", "云服务", "外部集成", "连接服务", "mcp", "连接工具", "调用 API", "数据库查询"],
+      "path": "~/.workbuddy/skills/mcp-connector/SKILL.md",
+      "complexity": 2,
+      "priority": 1
+    },
+    {
+      "id": "fusion-workflow-hub",
+      "name": "fusion-workflow-hub",
+      "category": "代码分析",
+      "description": "整合 Graphify 知识图谱、ECC 工具集和 OpenClaw 的融合工作流中心，实现深度代码分析、TDD 开发流程和持续学习优化。Knowledge graph, TDD, deep code analysis.",
+      "triggers": ["知识图谱", "graphify", "代码图谱", "深度分析代码库", "TDD", "融合工作流", "代码依赖分析", "代码结构分析"],
+      "path": "~/.workbuddy/skills/fusion-workflow-hub/SKILL.md",
+      "complexity": 3,
+      "priority": 1
+    },
+    {
+      "id": "neodata-financial-search",
+      "name": "neodata-financial-search",
+      "category": "金融数据",
+      "description": "NeoData 自然语言通用金融数据搜索。查询股票行情、财务报表、基金净值、板块异动、宏观经济、外汇汇率、大宗商品等全品类金融数据，即问即答。Real-time financial data search, stock quotes, financial statements, fund, macro, forex.",
+      "triggers": ["查股票", "行情", "财报", "股价", "涨跌", "基金净值", "板块", "宏观", "汇率", "大宗商品", "黄金", "原油", "债券", "腾讯", "茅台", "营收", "净利润", "估值", "今天涨了", "最新行情", "股票多少钱", "市盈率", "市值", "研报", "评级", "目标价", "资金流向", "北向资金", "CPI", "GDP", "PMI", "PPI", "通胀", "利率", "M2", "宏观指标", "经济数据", "最近数据"],
+      "path": "plugins/cb_teams_marketplace/finance-data/skills/neodata-financial-search/SKILL.md",
+      "complexity": 1,
+      "priority": 1
+    },
+    {
+      "id": "finance-data-retrieval",
+      "name": "finance-data-retrieval",
+      "category": "金融数据",
+      "description": "通过 209 个结构化 API 接口精确检索金融数据，覆盖股票、指数、期货、债券、基金、宏观经济等 15 大类。Finance data API, structured query, stock data, macro economics, futures, bonds, funds.",
+      "triggers": ["查行情", "看股票", "财务数据", "基金净值", "期货行情", "宏观数据", "涨停股", "龙虎榜", "资金流向", "Shibor利率", "沪深300", "可转债", "ETF", "港股数据", "利润表", "资产负债表", "现金流量表", "财报数据", "API查询", "结构化查询", "历史数据", "批量数据"],
+      "path": "plugins/cb_teams_marketplace/finance-data/skills/finance-data-retrieval/SKILL.md",
+      "complexity": 2,
+      "priority": 2
+    },
+    {
+      "id": "finance-workflows",
+      "name": "finance-workflows",
+      "category": "财务会计",
+      "description": "财务会计工作流，包含日记账分录、账户对账、利润表生成、差异分析、SOX 合规测试。Financial accounting workflows, journal entries, reconciliation, income statement, variance analysis.",
+      "triggers": ["日记账", "分录", "账户对账", "利润表", "差异分析", "SOX", "财务合规", "月末结账", "财务报告", "会计凭证", "借贷", "科目余额"],
+      "path": "plugins/cb_teams_marketplace/finance/skills/finance-workflows/SKILL.md",
+      "complexity": 3,
+      "priority": 1
+    },
+    {
+      "id": "dcf-model",
+      "name": "dcf-model",
+      "category": "金融分析",
+      "description": "DCF 折现现金流估值模型，包含 WACC 计算、终值计算、敏感性分析。Discounted cash flow valuation, DCF, WACC, terminal value, sensitivity analysis.",
+      "triggers": ["DCF", "折现现金流", "估值建模", "WACC", "内在价值", "dcf估值", "自由现金流", "终值"],
+      "path": "plugins/cb_teams_marketplace/financial-analysis/skills/dcf-model/SKILL.md",
+      "complexity": 3,
+      "priority": 1
+    },
+    {
+      "id": "comps-analysis",
+      "name": "comps-analysis",
+      "category": "金融分析",
+      "description": "可比公司分析，交易倍数分析，同行业估值对标，EV/EBITDA、P/E 等估值倍数。Comparable company analysis, trading multiples, peer benchmarking, EV/EBITDA, P/E.",
+      "triggers": ["可比公司", "交易倍数", "估值倍数", "同行对标", "comps", "EV/EBITDA", "市盈率对比", "行业估值", "估值比较", "市值倍数"],
+      "path": "plugins/cb_teams_marketplace/financial-analysis/skills/comps-analysis/SKILL.md",
+      "complexity": 2,
+      "priority": 1
+    },
+    {
+      "id": "lbo-model",
+      "name": "lbo-model",
+      "category": "金融分析",
+      "description": "杠杆收购建模，债务进度表，IRR 回报分析，退出情景分析。Leveraged buyout model, LBO, debt schedule, IRR, exit analysis.",
+      "triggers": ["LBO", "杠杆收购", "私募收购", "债务融资收购", "IRR分析", "lbo建模", "收购回报"],
+      "path": "plugins/cb_teams_marketplace/financial-analysis/skills/lbo-model/SKILL.md",
+      "complexity": 3,
+      "priority": 1
+    },
+    {
+      "id": "cim-builder",
+      "name": "cim-builder",
+      "category": "投行",
+      "description": "构建卖方并购流程的投资备忘录（CIM），组织公司信息为专业投资者材料。Confidential Information Memorandum, CIM, sell-side M&A materials.",
+      "triggers": ["CIM", "投资备忘录", "卖方材料", "并购材料", "信息备忘录", "cim文档"],
+      "path": "plugins/cb_teams_marketplace/investment-banking/skills/cim-builder/SKILL.md",
+      "complexity": 3,
+      "priority": 1
+    },
+    {
+      "id": "buyer-list",
+      "name": "buyer-list",
+      "category": "投行",
+      "description": "构建并优先排序潜在收购方名单，包含战略买方和财务买方。Buyer list, strategic buyers, financial sponsors, M&A target identification.",
+      "triggers": ["买方名单", "潜在收购方", "战略买家", "财务买家", "并购对象", "卖方买方"],
+      "path": "plugins/cb_teams_marketplace/investment-banking/skills/buyer-list/SKILL.md",
+      "complexity": 2,
+      "priority": 1
+    },
+    {
+      "id": "product-management-workflows",
+      "name": "product-management-workflows",
+      "category": "产品管理",
+      "description": "产品管理全生命周期工作流，包含 PRD 编写、路线图规划、用户研究、竞品分析、指标追踪。Product management, PRD, roadmap, user research, competitive analysis, metrics.",
+      "triggers": ["PRD", "产品需求", "需求文档", "路线图", "用户故事", "产品迭代", "产品规划", "功能规格", "产品经理", "OKR", "用户研究", "产品分析", "产品设计"],
+      "path": "plugins/cb_teams_marketplace/product-management/skills/product-management-workflows/SKILL.md",
+      "complexity": 2,
+      "priority": 1
+    },
+    {
+      "id": "data-analysis-workflows",
+      "name": "data-analysis-workflows",
+      "category": "数据分析",
+      "description": "数据分析全流程工作流，包含数据探索、SQL 查询、可视化、仪表板构建、统计分析。Data analysis, SQL, visualization, dashboard, statistical analysis, plotly.",
+      "triggers": ["数据分析", "SQL查询", "数据可视化", "仪表板", "数据探索", "统计分析", "数据报告", "图表", "数据集"],
+      "path": "plugins/cb_teams_marketplace/data/skills/data-analysis-workflows/SKILL.md",
+      "complexity": 2,
+      "priority": 1
+    },
+    {
+      "id": "xlsx",
+      "name": "xlsx",
+      "category": "办公文档",
+      "description": "处理 Excel 电子表格文件，读取、编辑、创建 xlsx/csv/tsv 文件，添加公式、格式化、制图。Excel spreadsheet, xlsx, csv, formula, data table, chart.",
+      "triggers": ["Excel", "xlsx", "电子表格", "表格", "csv", "公式", "excel文件", "数据表", "excel表格"],
+      "path": "~/.workbuddy/skills/xlsx/SKILL.md",
+      "complexity": 2,
+      "priority": 1
+    },
+    {
+      "id": "docx",
+      "name": "docx",
+      "category": "办公文档",
+      "description": "处理 Word 文档，创建、读取、编辑 docx 文件，包含目录、标题、表格、页眉。Word document, docx, report, memo, letter.",
+      "triggers": ["Word文档", "docx", "word", "报告文档", "备忘录", "letter", "word文件"],
+      "path": "~/.workbuddy/skills/docx/SKILL.md",
+      "complexity": 2,
+      "priority": 1
+    },
+    {
+      "id": "pptx",
+      "name": "pptx",
+      "category": "办公文档",
+      "description": "处理 PowerPoint 演示文稿，创建、读取、编辑 pptx 文件，制作幻灯片、演讲材料。PowerPoint, pptx, presentation, slides, deck, pitch.",
+      "triggers": ["PPT", "PowerPoint", "pptx", "幻灯片", "演示文稿", "演示", "做PPT", "PPT模板", "slides"],
+      "path": "~/.workbuddy/skills/pptx/SKILL.md",
+      "complexity": 2,
+      "priority": 1
+    },
+    {
+      "id": "pdf",
+      "name": "pdf",
+      "category": "办公文档",
+      "description": "处理 PDF 文件，读取、合并、拆分、加水印、OCR 识别、表格提取。PDF processing, merge, split, extract, OCR.",
+      "triggers": ["PDF", "pdf文件", "合并PDF", "拆分PDF", "PDF提取", "PDF转换", "OCR"],
+      "path": "~/.workbuddy/skills/pdf/SKILL.md",
+      "complexity": 2,
+      "priority": 1
+    },
+    {
+      "id": "competitive-analysis",
+      "name": "competitive-analysis",
+      "category": "金融分析",
+      "description": "竞争格局分析，市场定位分析，竞品功能对比，行业竞争态势。Competitive landscape, market positioning, competitive analysis.",
+      "triggers": ["竞争分析", "竞争格局", "市场定位", "竞品比较", "行业竞争", "竞争对手"],
+      "path": "plugins/cb_teams_marketplace/financial-analysis/skills/competitive-analysis/SKILL.md",
+      "complexity": 2,
+      "priority": 1
+    },
+    {
+      "id": "find-skills",
+      "name": "find-skills",
+      "category": "工作流",
+      "description": "帮助用户发现和安装 agent skills，扩展能力边界。Find and install skills, extend capabilities.",
+      "triggers": ["找skill", "安装skill", "有没有skill", "skill搜索", "扩展能力"],
+      "path": "~/.workbuddy/skills/find-skills/SKILL.md",
+      "complexity": 1,
+      "priority": 1
+    },
+    {
+      "id": "skill-creator",
+      "name": "skill-creator",
+      "category": "工作流",
+      "description": "创建自定义 skill，扩展 WorkBuddy 能力。Skill creation, custom workflow, skill development.",
+      "triggers": ["创建skill", "写skill", "自定义skill", "新建skill", "skill开发"],
+      "path": "~/.workbuddy/skills/skill-creator/SKILL.md",
+      "complexity": 2,
+      "priority": 1
+    }
+  ],
+  "routing_rules": {
+    "category_hints": {
+      "cpi|gdp|pmi|ppi|通胀|利率|m2|宏观指标|经济数据": ["金融数据"],
+      "股价|行情|财报|涨跌|基金|板块|汇率|黄金|原油": ["金融数据"],
+      "prd|需求文档|产品需求|功能规划|路线图|用户故事|迭代|产品经理": ["产品管理"]
+    },
+    "category_priority": {
+      "金融数据": ["neodata-financial-search", "finance-data-retrieval", "stock-analyst"],
+      "产品管理": ["product-management-workflows"]
+    }
+  }
+}

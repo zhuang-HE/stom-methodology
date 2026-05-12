@@ -31,7 +31,9 @@
 └─────────────────────────────────────────────────┘
 ```
 
-完整方法论请查看：[skill-creation-guide.md](skill-creation-guide.md)
+完整方法论请查看：
+- [skill-creation-guide.md](skill-creation-guide.md)（STOM v2.1，含 Perplexity 方法论整合）
+- [references/perplexity-skill-design.md](references/perplexity-skill-design.md)（Perplexity Skills 设计原典）
 
 ### 关键指标
 

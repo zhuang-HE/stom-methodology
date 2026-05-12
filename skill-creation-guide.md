@@ -377,3 +377,94 @@ v2.0 → v2.1 (2026-04-27):
 ---
 
 **注意**：Agent 全局执行策略（搜索优化、子智能体卸载、结果裁剪等）已移至 `references/agent-behavior-guide.md`，按需读取。
+
+---
+
+## 附：Perplexity Skills 设计方法论（STOM v2.1 补充）
+
+> **来源**：Perplexity 官方博客 *Designing, Refining, and Maintaining Agent Skills at Perplexity*
+> **定位**：与 STOM v2.1 互补——STOM 管「结构分层」，Perplexity 管「如何写、如何迭代、如何积累」。
+
+### A1. Zen of Skills（与 Python 之禅对照）
+
+| Python之禅 | Skill设计原则 |
+|-----------|-------------|
+| 简单优于复杂 | Skill是文件夹，复杂性本身就是feature |
+| 显式优于隐式 | 激活靠隐式模式匹配，靠渐进披露 |
+| 稀疏优于密集 | 上下文昂贵，每个token都要承载最大信号 |
+| 特殊情况不足以特殊对待 | Gotcha就是特殊情况，是最高价值内容 |
+| 可解释的实现就是好主意 | 如果内容很容易解释清楚，说明模型已掌握，应删掉 |
+
+### A2. Description 是路由触发器
+
+**Description 是 Skill 设计中最难写的一行**：
+
+```yaml
+# ✅ 正确写法（描述触发条件）
+description: >
+  Load when: 用户要求分析某只股票的技术面、问K线形态、缠论买卖点。
+  不加载：用户只想查实时行情、财报数据等数据获取需求。
+
+# ❌ 错误写法（描述功能）
+description: >
+  提供股票技术分析、K线形态识别、缠论买卖点、信号共振评分...
+```
+
+必须以 `Load when...` 开头，控制在50词以内，描述用户的真实意图而非Skill的工作流。
+
+### A3. Gotchas 飞轮（Skill 的核心资产）
+
+Gotcha = agent容易翻车的特殊场景/边界情况。这是Skill长期迭代的核心资产，每次翻车追加一条：
+
+```markdown
+# references/gotchas.md
+
+## 缠论分析
+- ⚠️ 不要在次级别中枢未完成时提示背驰 → 模型会误判
+- ⚠️ 第三类买卖点必须在次级别回调确认后才能标注
+
+## K线形态
+- ⚠️ 「锤头」和「倒锤」形状相似但含义相反，必须结合成交量判断
+```
+
+**Gotcha 追加规则**：
+| Agent表现 | 操作 |
+|---------|------|
+| 任务失败 | 追加一条gotcha |
+| 加载了不该加载的Skill | 收紧description + 增加负样本 |
+| 没加载该加载的Skill | 给description加关键词 + 增加正样本 |
+
+**维护原则**：不要随意修改description（决定路由），大部分时候仅需追加gotcha。
+
+### A4. Skill撰写五步法
+
+1. **先写评估集(Evals)**：真实用户查询 + 已知失败用例 + 邻域混淆样本
+2. **写description**：以`Load when...`开头，50词以内，描述用户真实意图
+3. **写SKILL.md正文**：给模型留灵活空间，最高价值是gotcha
+4. **用好目录结构**：`scripts/`放确定性逻辑，`references/`放重型文档
+5. **迭代**：在分支上反复跑评估集
+
+### A5. 六个可落地 Takeaway
+
+1. **Skill不是新文档**——别把README当Skill写
+2. **Description是最难的一行**——它决定路由，不是描述，必须以`Load when...`开头
+3. **Gotcha是无价的**——出错就加一条，长期飞轮
+4. **每个Skill都是税**——加之前先问"agent没它会不会出错"
+5. **多模型评测**——别只跟一个模型耦合，同一Skill需在GPT/Claude等不同模型上验证
+6. **Action at a distance是真实存在的**——新加一个Skill可能让另一个不相关的Skill变差
+
+### A6. STOM + Perplexity 关系对照
+
+| 维度 | STOM v2.1 | Perplexity方法论 |
+|------|-----------|----------------|
+| 核心关注 | 信息分层（SKILL.md ≤ 350行） | Skill怎么写、怎么迭代 |
+| Description | 要求简洁 | 要求是路由触发器（`Load when...`） |
+| 踩坑积累 | 踩坑经验写在SKILL.md末尾 | 独立`references/gotchas.md` |
+| 迭代方式 | 定期审计 | 失败用例驱动 |
+| 共同点 | 上下文Token意识 | 上下文Token意识 |
+
+**互补关系**：STOM 管「结构」，Perplexity 管「内容与迭代」。
+
+---
+
+*STOM v2.1 + Perplexity 方法论整合版 · 2026-05-12*
